@@ -2,15 +2,54 @@
  * Configuration for Claude Telegram Bot.
  *
  * All environment variables, paths, constants, and safety settings.
+ * Supports multi-instance operation via BOT_ID environment variable.
  */
 
 import { homedir } from "os";
 import { resolve, dirname } from "path";
+import { readFileSync, existsSync, mkdirSync } from "fs";
 import type { McpServerConfig } from "./types";
+
+// Load instance-specific env file before any process.env reads.
+// Bun auto-loads .env by default. We supplement with instances/{BOT_ID}.env.
+// Environment variables set externally (e.g., launchd) take precedence.
+const __repoRoot = dirname(import.meta.dir);
+
+function loadEnvFile(path: string): void {
+  if (!existsSync(path)) return;
+  const content = readFileSync(path, "utf-8");
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eqIndex = trimmed.indexOf("=");
+    if (eqIndex === -1) continue;
+    const key = trimmed.slice(0, eqIndex).trim();
+    const value = trimmed.slice(eqIndex + 1).trim();
+    if (!process.env[key]) {
+      process.env[key] = value;
+    }
+  }
+}
+
+const earlyBotId = process.env.BOT_ID || "";
+if (earlyBotId) {
+  loadEnvFile(resolve(__repoRoot, `instances/${earlyBotId}.env`));
+}
 
 // ============== Environment Setup ==============
 
 const HOME = homedir();
+
+// ============== Instance Identity ==============
+
+export const BOT_ID = process.env.BOT_ID || "";
+
+if (BOT_ID && !/^[a-z0-9-]+$/.test(BOT_ID)) {
+  console.error("ERROR: BOT_ID must be lowercase alphanumeric with hyphens only");
+  process.exit(1);
+}
+
+const INSTANCE_PREFIX = BOT_ID ? `claude-bot-${BOT_ID}` : "claude-telegram";
 
 // Ensure necessary paths are available for Claude's bash commands
 // LaunchAgents don't inherit the full shell environment
@@ -45,6 +84,10 @@ export const ALLOWED_USERS: number[] = (
 export const WORKING_DIR = process.env.CLAUDE_WORKING_DIR || HOME;
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 
+// ============== Model Selection ==============
+
+export const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-4-5";
+
 // ============== Claude CLI Path ==============
 
 // Auto-detect from PATH, or use environment override
@@ -64,21 +107,35 @@ export const CLAUDE_CLI_PATH = findClaudeCli();
 
 // ============== MCP Configuration ==============
 
-// MCP servers loaded from mcp-config.ts
 let MCP_SERVERS: Record<string, McpServerConfig> = {};
 
 try {
-  // Dynamic import of MCP config
-  const mcpConfigPath = resolve(dirname(import.meta.dir), "mcp-config.ts");
-  const mcpModule = await import(mcpConfigPath).catch(() => null);
-  if (mcpModule?.MCP_SERVERS) {
-    MCP_SERVERS = mcpModule.MCP_SERVERS;
-    console.log(
-      `Loaded ${Object.keys(MCP_SERVERS).length} MCP servers from mcp-config.ts`
-    );
+  const repoRoot = dirname(import.meta.dir);
+
+  const candidates = BOT_ID
+    ? [
+        resolve(repoRoot, `mcp-config.${BOT_ID}.ts`),
+        resolve(repoRoot, "mcp-config.ts"),
+      ]
+    : [resolve(repoRoot, "mcp-config.ts")];
+
+  for (const candidate of candidates) {
+    const mcpModule = await import(candidate).catch(() => null);
+    if (mcpModule?.MCP_SERVERS) {
+      MCP_SERVERS = mcpModule.MCP_SERVERS;
+      const filename = candidate.split("/").pop();
+      console.log(
+        `Loaded ${Object.keys(MCP_SERVERS).length} MCP servers from ${filename}`
+      );
+      break;
+    }
+  }
+
+  if (Object.keys(MCP_SERVERS).length === 0) {
+    console.log("No MCP config found - running without MCPs");
   }
 } catch {
-  console.log("No mcp-config.ts found - running without MCPs");
+  console.log("No MCP config found - running without MCPs");
 }
 
 export { MCP_SERVERS };
@@ -200,7 +257,7 @@ export const BUTTON_LABEL_MAX_LENGTH = 30; // Max chars for inline button labels
 // ============== Audit Logging ==============
 
 export const AUDIT_LOG_PATH =
-  process.env.AUDIT_LOG_PATH || "/tmp/claude-telegram-audit.log";
+  process.env.AUDIT_LOG_PATH || `/tmp/${INSTANCE_PREFIX}-audit.log`;
 export const AUDIT_LOG_JSON =
   (process.env.AUDIT_LOG_JSON || "false").toLowerCase() === "true";
 
@@ -219,14 +276,15 @@ export const RATE_LIMIT_WINDOW = parseInt(
 
 // ============== File Paths ==============
 
-export const SESSION_FILE = "/tmp/claude-telegram-session.json";
-export const RESTART_FILE = "/tmp/claude-telegram-restart.json";
-export const TEMP_DIR = "/tmp/telegram-bot";
+export const SESSION_FILE = `/tmp/${INSTANCE_PREFIX}-session.json`;
+export const RESTART_FILE = `/tmp/${INSTANCE_PREFIX}-restart.json`;
+export const TEMP_DIR = `/tmp/${INSTANCE_PREFIX}`;
 
 // Temp paths that are always allowed for bot operations
 export const TEMP_PATHS = ["/tmp/", "/private/tmp/", "/var/folders/"];
 
 // Ensure temp directory exists
+try { mkdirSync(TEMP_DIR, { recursive: true }); } catch {}
 await Bun.write(`${TEMP_DIR}/.keep`, "");
 
 // ============== Validation ==============
@@ -243,6 +301,7 @@ if (ALLOWED_USERS.length === 0) {
   process.exit(1);
 }
 
+const instanceLabel = BOT_ID ? ` [${BOT_ID}]` : "";
 console.log(
-  `Config loaded: ${ALLOWED_USERS.length} allowed users, working dir: ${WORKING_DIR}`
+  `Config loaded${instanceLabel}: ${ALLOWED_USERS.length} allowed users, model: ${CLAUDE_MODEL}, working dir: ${WORKING_DIR}`
 );

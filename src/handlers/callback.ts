@@ -7,7 +7,7 @@
 import type { Context } from "grammy";
 import { unlinkSync } from "fs";
 import { session } from "../session";
-import { ALLOWED_USERS } from "../config";
+import { ALLOWED_USERS, BOT_ID } from "../config";
 import { isAuthorized } from "../security";
 import { auditLog, startTypingIndicator } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
@@ -54,7 +54,8 @@ export async function handleCallback(ctx: Context): Promise<void> {
   const optionIndex = parseInt(parts[2]!, 10);
 
   // 3. Load request file
-  const requestFile = `/tmp/ask-user-${requestId}.json`;
+  const askPrefix = BOT_ID ? `ask-user-${BOT_ID}` : "ask-user";
+  const requestFile = `/tmp/${askPrefix}-${requestId}.json`;
   let requestData: {
     question: string;
     options: string[];

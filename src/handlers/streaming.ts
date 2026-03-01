@@ -10,6 +10,7 @@ import { InlineKeyboard } from "grammy";
 import type { StatusCallback } from "../types";
 import { convertMarkdownToHtml, escapeHtml } from "../formatting";
 import {
+  BOT_ID,
   TELEGRAM_MESSAGE_LIMIT,
   TELEGRAM_SAFE_LIMIT,
   STREAMING_THROTTLE_MS,
@@ -44,7 +45,8 @@ export async function checkPendingAskUserRequests(
   ctx: Context,
   chatId: number
 ): Promise<boolean> {
-  const glob = new Bun.Glob("ask-user-*.json");
+  const askUserPattern = BOT_ID ? `ask-user-${BOT_ID}-*.json` : "ask-user-*.json";
+  const glob = new Bun.Glob(askUserPattern);
   let buttonsSent = false;
 
   for await (const filename of glob.scan({ cwd: "/tmp", absolute: false })) {

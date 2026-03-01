@@ -92,7 +92,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     created_at: new Date().toISOString(),
   };
 
-  const requestFile = `/tmp/ask-user-${requestUuid}.json`;
+  const botId = process.env.BOT_ID || "";
+  const askPrefix = botId ? `ask-user-${botId}` : "ask-user";
+  const requestFile = `/tmp/${askPrefix}-${requestUuid}.json`;
   await Bun.write(requestFile, JSON.stringify(requestData, null, 2));
 
   return {

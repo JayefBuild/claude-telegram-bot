@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.agent.general</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/jfrech/.bun/bin/bun</string>
+        <string>run</string>
+        <string>/Users/jfrech/jayef_bots/src/index.ts</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/jfrech/jayef_bots</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>BOT_ID</key>
+        <string>general</string>
+
+        <key>PATH</key>
+        <string>/Users/jfrech/.bun/bin:/Users/jfrech/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <key>KeepAlive</key>
+    <true/>
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/claude-bot-general.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/claude-bot-general.err</string>
+</dict>
+</plist>

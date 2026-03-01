@@ -6,7 +6,7 @@
 
 import { Bot } from "grammy";
 import { run, sequentialize } from "@grammyjs/runner";
-import { TELEGRAM_TOKEN, WORKING_DIR, ALLOWED_USERS, RESTART_FILE } from "./config";
+import { TELEGRAM_TOKEN, WORKING_DIR, ALLOWED_USERS, RESTART_FILE, BOT_ID, CLAUDE_MODEL } from "./config";
 import { unlinkSync, readFileSync, existsSync } from "fs";
 import {
   handleStart,
@@ -92,9 +92,11 @@ bot.catch((err) => {
 
 // ============== Startup ==============
 
+const label = BOT_ID ? `Claude Bot [${BOT_ID}]` : "Claude Telegram Bot";
 console.log("=".repeat(50));
-console.log("Claude Telegram Bot - TypeScript Edition");
+console.log(label);
 console.log("=".repeat(50));
+console.log(`Model: ${CLAUDE_MODEL}`);
 console.log(`Working directory: ${WORKING_DIR}`);
 console.log(`Allowed users: ${ALLOWED_USERS.length}`);
 console.log("Starting bot...");
